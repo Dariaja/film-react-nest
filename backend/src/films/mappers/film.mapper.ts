@@ -19,7 +19,7 @@ export function toScheduleDto(schedule: ScheduleEntity): ScheduleDto {
   return {
     id: schedule.id,
     daytime: schedule.daytime,
-    hall: String(schedule.hall),
+    hall: schedule.hall,
     rows: schedule.rows,
     seats: schedule.seats,
     price: schedule.price,
