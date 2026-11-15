@@ -1,4 +1,4 @@
-import {ReactNode, Reducer, useEffect, useReducer, useRef} from "react";
+import {ReactNode, Reducer, useCallback, useEffect, useReducer, useRef} from "react";
 import {Actions, appReducer, AppState, initialState, Modals} from "../utils/state.ts";
 import {Contacts, FilmAPI, IFilmAPI, Movie, Session} from "../utils/api.ts";
 import {API_URL, CDN_URL} from "../utils/constants.ts";
@@ -29,7 +29,18 @@ export function useAppState() {
         session: `${ticket.day} ${ticket.time}`
     }));
 
-    const setFilms = (items: Movie[]) => dispatch({ type: 'setFilms', payload: items });
+    const setFilms = useCallback((items: Movie[]) => {
+        dispatch({ type: 'setFilms', payload: items });
+    }, []);
+
+    const handleApiError = useCallback((error: unknown, fallback: string) => {
+        const message = typeof error === 'string' && error.trim()
+            ? error
+            : fallback;
+
+        dispatch({ type: 'setError', payload: message });
+    }, []);
+
     const setSelectedFilm = (id: string) => dispatch({ type: 'selectFilm', payload: id });
     const setCurrentSchedule = (items: Session[]) => dispatch({ type: 'setSchedule', payload: items });
     const selectSession = (id: string) => dispatch({ type: 'selectSession', payload: id });
@@ -39,13 +50,20 @@ export function useAppState() {
     const setContacts = (contacts: Contacts) => dispatch({ type: 'setContacts', payload: contacts });
 
     const orderTickets = () => {
-        api.current.orderTickets({
+        dispatch({ type: 'clearError' });
+
+        return api.current.orderTickets({
             email: state.contacts.email,
             phone: state.contacts.phone,
             tickets: state.basket
         }).then(() => {
             dispatch({ type: 'clearBasket' });
             dispatch({ type: 'openModal', payload: 'success' });
+        }).catch((error: unknown) => {
+            handleApiError(
+                error,
+                'Не удалось оформить заказ. Попробуйте ещё раз.'
+            );
         });
     };
 
@@ -90,13 +108,40 @@ export function useAppState() {
     };
     const handleOpenFilm = () => {
         if (state.selectedFilm) {
-            api.current.getFilmSchedule(state.selectedFilm).then(setCurrentSchedule);
+            dispatch({ type: 'clearError' });
+
+            return api.current.getFilmSchedule(state.selectedFilm)
+                .then(setCurrentSchedule)
+                .catch((error: unknown) => {
+                    handleApiError(
+                        error,
+                        'Не удалось загрузить расписание. Попробуйте ещё раз.'
+                    );
+                });
         }
     };
 
     useEffect(() => {
-        api.current.getFilms().then(setFilms);
-    }, []);
+        let active = true;
+        dispatch({ type: 'clearError' });
+
+        api.current.getFilms()
+            .then((items) => {
+                if (active) setFilms(items);
+            })
+            .catch((error: unknown) => {
+                if (active) {
+                    handleApiError(
+                        error,
+                        'Не удалось загрузить фильмы. Проверьте подключение и обновите страницу.'
+                    );
+                }
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [handleApiError, setFilms]);
 
     return {
         state,

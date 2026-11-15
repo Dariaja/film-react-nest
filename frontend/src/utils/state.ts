@@ -24,6 +24,8 @@ export type Actions =
     | { type: 'setContacts', payload: Contacts }
     | { type: 'openModal', payload: Modals }
     | { type: 'closeModal' }
+    | { type: 'setError', payload: string }
+    | { type: 'clearError' }
     | { type: 'clearBasket' };
 
 export const initialState: AppState = {
@@ -108,11 +110,23 @@ const validateOrder = (state: AppState): AppState => {
 
 export function appReducer(state: AppState, action: Actions): AppState {
     switch (action.type) {
+        case 'setError':
+            return {
+                ...state,
+                message: action.payload,
+                isError: true
+            };
+        case 'clearError':
+            return {
+                ...state,
+                message: '',
+                isError: false
+            };
         case 'setFilms':
             return {
                 ...state,
                 films: action.payload,
-                selectedFilm: action.payload[0].id
+                selectedFilm: action.payload[0]?.id ?? null
             };
         case 'selectFilm':
             return {
